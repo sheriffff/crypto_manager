@@ -4,11 +4,20 @@ import time
 
 from config import WHITELISTED_ASSETS, asset_to_step
 from kraken import KrakenAPI, Kraken
-from utils import load_keys, round_sig_dict, round_dict
+from utils import load_keys, round_sig_dict
 
 key, secret = load_keys()
 kraken_api_handler = KrakenAPI(key=key, secret=secret)
 kraken = Kraken(kraken_api_handler)
+
+
+def set_page_config():
+    st.set_page_config(
+        page_title="Cryptos Manager",
+        page_icon="💰",
+    )
+
+    st.title("Cryptos Manager (Kraken)")
 
 
 def load_info():
@@ -39,7 +48,7 @@ def update_prices():
     st.session_state.prices = prices
 
 
-def reset_volumes():
+def reset_trading_volumes():
     st.session_state.asset_volume = 0
     st.session_state.usd_volume = 0
 
@@ -65,15 +74,6 @@ def confirm_trade():
 
     update_info()
     st.experimental_rerun()
-
-
-def set_page_config():
-    st.set_page_config(
-        page_title="Cryptos Sheriff",
-        page_icon="💰",
-    )
-
-    st.title("Cryptos Sheriff (Kraken)")
 
 
 def main():
@@ -105,7 +105,7 @@ def main():
 
     st.header("Trade with USD")
     assets = [asset for asset in WHITELISTED_ASSETS if asset != "ZUSD"]
-    asset = st.columns(2)[0].selectbox("Asset", assets, on_change=reset_volumes)
+    asset = st.columns(2)[0].selectbox("Asset", assets, on_change=reset_trading_volumes)
     asset_price = st.session_state.prices.get(asset)
 
     col1, col2, _, _ = st.columns(4)
