@@ -1,0 +1,19 @@
+general:
+  pair: "XETHZUSD"
+  interval_mins: 15
+
+strategies:
+  Dummy: {}
+
+  RSI:
+    window: 14
+    rsi_threshold_buy: 10
+    rsi_threshold_sell: 90
+
+  BollingerBands:
+    window: 20
+    num_std_dev: 2
+
+  ParabolicSAR:
+    acceleration: 0.02
+    acceleration_max: 0.2

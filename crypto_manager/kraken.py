@@ -1,8 +1,10 @@
+from datetime import datetime
+import pandas as pd
 import requests
 import time
 
-from config import WHITELISTED_ASSETS, assets_2_pair
-from utils import get_kraken_signature
+from crypto_manager.config import WHITELISTED_ASSETS, assets_2_pair
+from crypto_manager.utils import get_kraken_signature, load_keys
 
 
 class KrakenAPI:
@@ -40,6 +42,9 @@ class KrakenAPI:
     def get_order_book(self, pair):
         return self._query('/0/public/Depth', data={'pair': pair})
 
+    def get_ohlc(self, pair, interval_mins):
+        return self._query('/0/public/OHLC', data={'pair': pair, 'interval': interval_mins})
+
     def add_market_order(self, pair, buy_or_sell, volume):
         data = {
             'pair': pair,
@@ -72,6 +77,22 @@ class Kraken:
                 prices[asset] = current_price
 
         return prices
+
+    def get_prices_history(self, pair, interval_mins=1):
+        ohlc_history = self.api.get_ohlc(pair, interval_mins).get("result")
+        ohlc_history = ohlc_history.get(pair)
+
+        price_history = [{
+            "time": datetime.fromtimestamp(ohlc_elem[0]),
+            "price": float(ohlc_elem[4]),
+            "open": float(ohlc_elem[1]),
+            "high": float(ohlc_elem[2]),
+            "low": float(ohlc_elem[3]),
+            "close": float(ohlc_elem[4]),
+        } for ohlc_elem in ohlc_history]
+        price_history_df = pd.DataFrame(price_history)
+
+        return price_history_df
 
     def to_usd(self, asset, asset_amount):
         if asset == "ZUSD":
@@ -111,3 +132,10 @@ class Kraken:
             return False
         else:
             return True
+
+
+def initialize_kraken_api():
+
+    key, secret = load_keys()
+    kraken_api = KrakenAPI(key=key, secret=secret)
+    return Kraken(kraken_api)
