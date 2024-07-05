@@ -7,7 +7,7 @@ import base64
 
 
 def load_keys():
-    with open("../../keys.yaml", "r") as keys_file:
+    with open("../keys.yaml", "r") as keys_file:
         keys = yaml.safe_load(keys_file)
 
     key = keys["APIKEY"]

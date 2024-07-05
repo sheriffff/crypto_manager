@@ -3,8 +3,8 @@ import pandas as pd
 import requests
 import time
 
-from crypto_manager.config import WHITELISTED_ASSETS, assets_2_pair
-from crypto_manager.utils import get_kraken_signature, load_keys
+from config import WHITELISTED_ASSETS, assets_2_pair
+from utils import get_kraken_signature, load_keys
 
 
 class KrakenAPI:

@@ -73,7 +73,7 @@ def confirm_trade():
         my_bar.progress(percent_complete + 1, text=progress_text)
 
     update_info()
-    st.experimental_rerun()
+    st.rerun()
 
 
 def main():
