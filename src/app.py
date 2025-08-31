@@ -6,6 +6,7 @@ from config import WHITELISTED_ASSETS, asset_to_step
 from kraken import KrakenAPI, Kraken
 from utils import load_keys, round_sig_dict
 
+
 key, secret = load_keys()
 kraken_api_handler = KrakenAPI(key=key, secret=secret)
 kraken = Kraken(kraken_api_handler)
@@ -73,7 +74,7 @@ def confirm_trade():
         my_bar.progress(percent_complete + 1, text=progress_text)
 
     update_info()
-    st.experimental_rerun()
+    st.rerun()
 
 
 def main():

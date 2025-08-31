@@ -1,9 +1,9 @@
 import json
 
-from crypto_manager.kraken import initialize_kraken_api
-from crypto_manager.trading.backtesting import backtest
-from crypto_manager.trading.strategies import RSI, BollingerBands, StrategyFactory
-from crypto_manager.trading.utils import load_config
+from src.kraken import initialize_kraken_api
+from src.trading.backtesting import backtest
+from src.trading.strategies import RSI, BollingerBands, StrategyFactory
+from src.trading.utils import load_config
 
 data_handler = initialize_kraken_api()
 config = load_config()

@@ -3,8 +3,8 @@ import pandas as pd
 import requests
 import time
 
-from crypto_manager.config import WHITELISTED_ASSETS, assets_2_pair
-from crypto_manager.utils import get_kraken_signature, load_keys
+from config import WHITELISTED_ASSETS, assets_2_pair
+from utils import get_kraken_signature, load_keys
 
 
 class KrakenAPI:
@@ -16,6 +16,19 @@ class KrakenAPI:
             'User-Agent': 'Kraken REST API',
             'API-Key': self.key,
         }
+
+        self.check_connection()
+
+    def check_connection(self):
+        # check public api, then private api
+        # raise an exception if the connection is not successful
+        response = self._query('/0/public/Time')
+        if response.get("error"):
+            raise Exception(f"API error on public endpoint: {response.get('error')}")
+
+        response = self.get_assets_balances()
+        if response.get("error"):
+            raise Exception(f"API error on private endpoint: {response.get('error')}")
 
     def _query(self, urlpath, data=None):
         url = self.uri + urlpath

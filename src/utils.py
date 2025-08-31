@@ -5,9 +5,11 @@ import hashlib
 import hmac
 import base64
 
+from src import KEYS_FILE
+
 
 def load_keys():
-    with open("../../keys.yaml", "r") as keys_file:
+    with open(KEYS_FILE, "r") as keys_file:
         keys = yaml.safe_load(keys_file)
 
     key = keys["APIKEY"]
