@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 import time
-import plotly.express as px
 import matplotlib.pyplot as plt
 
 from config import WHITELISTED_ASSETS, asset_to_step
@@ -102,19 +101,20 @@ def get_last_trades(asset_filter=None):
                 continue
             if asset_filter == 'ETH' and currency != 'ETH':
                 continue
-        # Format date as '25 Aug 2025'
+
         date = trade_time.strftime('%-d %b %Y')
         buy_sell = 'BUY' if trade['type'].lower() == 'buy' else 'SELL'
+
         # Amount in USD (cost), round to -1 decimals, with dollar sign
         try:
             amount_usd = f"${round(float(trade.get('cost', 0)), -1):,.0f}"
         except (ValueError, TypeError):
             amount_usd = "$0"
-        # Price, round to -1 decimals
+        # Price, round to 2 decimals for display
         try:
-            price = round(float(trade.get('price', 0)), -1)
+            price = round(float(trade.get('price', 0)), 2)
         except (ValueError, TypeError):
-            price = 0
+            price = 0.0
         rows.append({
             'Date': date,
             'Type': buy_sell,
@@ -123,6 +123,34 @@ def get_last_trades(asset_filter=None):
         })
     df = pd.DataFrame(rows)
     return df.head(10)
+
+
+def styled_trade_table(df):
+    def highlight_type(val):
+        return 'background-color: #d4f8e8' if val == 'BUY' else 'background-color: #ffd6d6'
+    # Only paint Type column, do not touch Price
+    return df.style.apply(lambda col: [highlight_type(v) for v in col], subset=['Type'])
+
+
+def trade_scatter_plot(df, asset_name):
+    df['Timestamp'] = pd.to_datetime(df['Date'], format='%d %b %Y')
+    df['AmountNum'] = df['Amount $'].str.replace(r'[$,]', '', regex=True).astype(float)
+    df['Color'] = df['Type'].map({'BUY': 'green', 'SELL': 'red'})
+    def format_k(amount):
+        if amount >= 1000:
+            return f"{amount/1000:.1f}k"
+        else:
+            return f"{int(amount)}"
+    fig, ax = plt.subplots()
+    ax.plot(df['Timestamp'], df['Price'].astype(float), color='gray', linestyle='-', linewidth=1, zorder=1)
+    for idx, row in df.iterrows():
+        ax.scatter(row['Timestamp'], float(row['Price']), s=row['AmountNum']/df['AmountNum'].max()*100+20, color=row['Color'], zorder=2)
+        ax.text(row['Timestamp'], float(row['Price']), format_k(row['AmountNum']), fontsize=8, color=row['Color'], ha='left', va='bottom')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.set_title(f'{asset_name} Trades (Last 24 Months)')
+    plt.xticks(rotation=45)
+    return fig
 
 
 def main():
@@ -194,67 +222,17 @@ def main():
     with trades_btc:
         st.header("Latest BTC Orders")
         last_btc_trades_df = get_last_trades(asset_filter="BTC")
-        # Format Price column to one decimal
-        last_btc_trades_df['Price'] = last_btc_trades_df['Price'].map(lambda x: f"{x:.1f}")
-        def highlight_type(val):
-            color = '#d4f8e8' if val == 'BUY' else '#ffd6d6'
-            return f'background-color: {color}'
-        def highlight_price(row):
-            color = '#d4f8e8' if row['Type'] == 'BUY' else '#ffd6d6'
-            return [f'background-color: {color}' if col == 'Price' else '' for col in row.index]
-        styled_btc_df = last_btc_trades_df.style.applymap(highlight_type, subset=['Type']).apply(highlight_price, axis=1)
-        st.dataframe(styled_btc_df, use_container_width=True, hide_index=True)
-        # Matplotlib chart for BTC trades
+        st.dataframe(styled_trade_table(last_btc_trades_df), use_container_width=True, hide_index=True)
         if not last_btc_trades_df.empty:
-            chart_df = last_btc_trades_df.copy()
-            chart_df['Timestamp'] = pd.to_datetime(chart_df['Date'], format='%d %b %Y')
-            chart_df['AmountNum'] = chart_df['Amount $'].str.replace(r'[$,]', '', regex=True).astype(float)
-            chart_df['Color'] = chart_df['Type'].map({'BUY': 'green', 'SELL': 'red'})
-            def format_k(amount):
-                if amount >= 1000:
-                    return f"{amount/1000:.1f}k"
-                else:
-                    return f"{int(amount)}"
-            fig, ax = plt.subplots()
-            # Plot lines
-            ax.plot(chart_df['Timestamp'], chart_df['Price'].astype(float), color='gray', linestyle='-', linewidth=1, zorder=1)
-            # Plot dots and labels
-            for idx, row in chart_df.iterrows():
-                ax.scatter(row['Timestamp'], float(row['Price']), s=row['AmountNum']/chart_df['AmountNum'].max()*100+20, color=row['Color'], zorder=2)
-                ax.text(row['Timestamp'], float(row['Price']), format_k(row['AmountNum']), fontsize=8, color=row['Color'], ha='left', va='bottom')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Price')
-            ax.set_title('BTC Trades (Last 24 Months)')
-            plt.xticks(rotation=45)
+            fig = trade_scatter_plot(last_btc_trades_df, "BTC")
             st.pyplot(fig, use_container_width=True)
 
     with trades_eth:
         st.header("Latest ETH Orders")
         last_eth_trades_df = get_last_trades(asset_filter="ETH")
-        # Format Price column to one decimal
-        last_eth_trades_df['Price'] = last_eth_trades_df['Price'].map(lambda x: f"{x:.1f}")
-        styled_eth_df = last_eth_trades_df.style.applymap(highlight_type, subset=['Type']).apply(highlight_price, axis=1)
-        st.dataframe(styled_eth_df, use_container_width=True, hide_index=True)
-        # Matplotlib chart for ETH trades
+        st.dataframe(styled_trade_table(last_eth_trades_df), use_container_width=True, hide_index=True)
         if not last_eth_trades_df.empty:
-            chart_df = last_eth_trades_df.copy()
-            chart_df['Timestamp'] = pd.to_datetime(chart_df['Date'], format='%d %b %Y')
-            chart_df['AmountNum'] = chart_df['Amount $'].str.replace(r'[$,]', '', regex=True).astype(float)
-            chart_df['Color'] = chart_df['Type'].map({'BUY': 'green', 'SELL': 'red'})
-            def format_k(amount):
-                if amount >= 1000:
-                    return f"{amount/1000:.1f}k"
-                else:
-                    return f"{int(amount)}"
-            fig, ax = plt.subplots()
-            ax.plot(chart_df['Timestamp'], chart_df['Price'].astype(float), color='gray', linestyle='-', linewidth=1, zorder=1)
-            for idx, row in chart_df.iterrows():
-                ax.scatter(row['Timestamp'], float(row['Price']), s=row['AmountNum']/chart_df['AmountNum'].max()*100+20, color=row['Color'], zorder=2)
-                ax.text(row['Timestamp'], float(row['Price']), format_k(row['AmountNum']), fontsize=8, color=row['Color'], ha='left', va='bottom')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Price')
-            ax.set_title('ETH Trades (Last 24 Months)')
-            plt.xticks(rotation=45)
+            fig = trade_scatter_plot(last_eth_trades_df, "ETH")
             st.pyplot(fig, use_container_width=True)
 
 
