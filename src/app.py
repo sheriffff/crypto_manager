@@ -16,6 +16,7 @@ def set_page_config():
     st.set_page_config(
         page_title="Cryptos Manager",
         page_icon="💰",
+        layout="wide",  # Set layout to wide
     )
 
     st.title("Cryptos Manager (Kraken)")
@@ -77,13 +78,49 @@ def confirm_trade():
     st.rerun()
 
 
+def get_last_trades():
+    trades_data = kraken.get_trades_history()
+    trades = trades_data.get('result', {}).get('trades', {})
+    # Sort by time descending
+    sorted_trades = sorted(trades.values(), key=lambda x: x['time'], reverse=True)[:10]
+    rows = []
+    for trade in sorted_trades:
+        # Format date as '25 August 2025'
+        date = pd.to_datetime(trade['time'], unit='s').strftime('%-d %B %Y')
+        buy_sell = 'BUY' if trade['type'].lower() == 'buy' else 'SELL'
+        # Amount in USD (cost), round to -1 decimals
+        try:
+            amount_usd = round(float(trade.get('cost', 0)), -1)
+        except (ValueError, TypeError):
+            amount_usd = 0
+        # Asset/currency
+        asset = trade.get('vol', None)
+        pair = trade.get('pair', '')
+        # Try to extract asset from pair (e.g., XBTUSD -> XBT)
+        currency = pair.replace('USD', '').replace('Z', '').replace('X', '') if pair else ''
+        # Price, round to -1 decimals
+        try:
+            price = round(float(trade.get('price', 0)), -1)
+        except (ValueError, TypeError):
+            price = 0
+        rows.append({
+            'Date': date,
+            'Type': buy_sell,
+            'Amount (USD)': amount_usd,
+            'Currency': currency,
+            'Price': price
+        })
+    df = pd.DataFrame(rows)
+    return df
+
+
 def main():
     set_page_config()
     load_info()
 
     st.button("UPDATE", on_click=update_info)
 
-    col1, col2 = st.columns([2, 1])
+    col1, _, col2 = st.columns([2, 2, 1])
 
     with col1:
         balances_info = [{"asset": asset, "volume": volume, "volume_USD": st.session_state.balances_usd[asset]} for asset, volume in st.session_state.balances.items()]
@@ -98,39 +135,47 @@ def main():
         st.dataframe(balances_df)
 
     with col2:
-        st.header("Prices")
+        st.header("Price Now")
         prices_df = pd.DataFrame(st.session_state.prices.items(), columns=["asset", "price_USD"])
         prices_df.sort_values("price_USD", ascending=False, inplace=True)
         prices_df.set_index("asset", inplace=True)
         st.dataframe(prices_df)
 
-    st.header("Trade with USD")
-    assets = [asset for asset in WHITELISTED_ASSETS if asset != "ZUSD"]
-    asset = st.columns(2)[0].selectbox("Asset", assets, on_change=reset_trading_volumes)
-    asset_price = st.session_state.prices.get(asset)
+    trade_col, _, trades_col = st.columns([2, 1, 2])
+    with trade_col:
+        st.header("Trade with USD")
+        assets = [asset for asset in WHITELISTED_ASSETS if asset != "ZUSD"]
+        asset = st.radio("Asset", assets, on_change=reset_trading_volumes)
+        asset_price = st.session_state.prices.get(asset)
 
-    col1, col2, _, _ = st.columns(4)
-    volume_asset = col1.number_input(asset, step=asset_to_step[asset], key="asset_volume", on_change=update_usd_volume, kwargs={"asset_price": asset_price}, format="%.5f")
-    volume_usd = col2.number_input("USD", step=asset_to_step["ZUSD"], key="usd_volume", on_change=update_asset_volume, kwargs={"asset_price": asset_price})
+        col1, col2 = st.columns(2)
+        volume_usd = col1.number_input("USD", step=asset_to_step["ZUSD"], key="usd_volume", on_change=update_asset_volume, kwargs={"asset_price": asset_price})
+        volume_asset = col2.number_input(asset, step=asset_to_step[asset], key="asset_volume", on_change=update_usd_volume, kwargs={"asset_price": asset_price}, format="%.5f")
 
-    col1, col2, _, _ = st.columns(4)
-    if col1.button(f"BUY {asset}"):
-        if volume_usd > st.session_state.balances["ZUSD"]:
-            st.error("Not enough USD funds")
-        else:
-            if kraken.buy_market(asset, volume_asset):
-                confirm_trade()
+        st.text("")
+
+        col1, col2, _, _ = st.columns(4)
+        if col1.button(f"BUY {asset}"):
+            if volume_usd > st.session_state.balances["ZUSD"]:
+                st.error("Not enough USD funds")
             else:
-                st.error("Something went wrong")
+                if kraken.buy_market(asset, volume_asset):
+                    confirm_trade()
+                else:
+                    st.error("Something went wrong")
 
-    if col2.button(f"SELL {asset}"):
-        if volume_asset > st.session_state.balances[asset]:
-            st.error(f"Not enough {asset} funds")
-        else:
-            if kraken.sell_market(asset, volume_asset):
-                confirm_trade()
+        if col2.button(f"SELL {asset}"):
+            if volume_asset > st.session_state.balances[asset]:
+                st.error(f"Not enough {asset} funds")
             else:
-                st.error("Something went wrong")
+                if kraken.sell_market(asset, volume_asset):
+                    confirm_trade()
+                else:
+                    st.error("Something went wrong")
+    with trades_col:
+        st.header("Last Trades")
+        last_trades_df = get_last_trades()
+        st.dataframe(last_trades_df, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":

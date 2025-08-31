@@ -91,6 +91,9 @@ class Kraken:
 
         return prices
 
+    def get_trades_history(self):
+        return self.api.get_trades_history()
+
     def get_prices_history(self, pair, interval_mins=1):
         ohlc_history = self.api.get_ohlc(pair, interval_mins).get("result")
         ohlc_history = ohlc_history.get(pair)
