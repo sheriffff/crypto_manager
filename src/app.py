@@ -78,26 +78,36 @@ def confirm_trade():
     st.rerun()
 
 
-def get_last_trades():
+def get_last_trades(asset_filter=None):
     trades_data = kraken.get_trades_history()
     trades = trades_data.get('result', {}).get('trades', {})
-    # Sort by time descending
-    sorted_trades = sorted(trades.values(), key=lambda x: x['time'], reverse=True)[:10]
+
+    now = pd.Timestamp('now')
+    cutoff = now - pd.DateOffset(months=24)
+
+    sorted_trades = sorted(trades.values(), key=lambda x: x['time'], reverse=True)
     rows = []
     for trade in sorted_trades:
-        # Format date as '25 August 2025'
-        date = pd.to_datetime(trade['time'], unit='s').strftime('%-d %B %Y')
-        buy_sell = 'BUY' if trade['type'].lower() == 'buy' else 'SELL'
-        # Amount in USD (cost), round to -1 decimals
-        try:
-            amount_usd = round(float(trade.get('cost', 0)), -1)
-        except (ValueError, TypeError):
-            amount_usd = 0
-        # Asset/currency
-        asset = trade.get('vol', None)
+        trade_time = pd.to_datetime(trade['time'], unit='s')
+        if trade_time < cutoff:
+            continue
         pair = trade.get('pair', '')
-        # Try to extract asset from pair (e.g., XBTUSD -> XBT)
+        # Extract asset from pair (e.g., XBTUSD -> XBT)
         currency = pair.replace('USD', '').replace('Z', '').replace('X', '') if pair else ''
+        # Filter by asset if needed
+        if asset_filter:
+            if asset_filter == 'BTC' and currency != 'BT':
+                continue
+            if asset_filter == 'ETH' and currency != 'ETH':
+                continue
+        # Format date as '25 Aug 2025'
+        date = trade_time.strftime('%-d %b %Y')
+        buy_sell = 'BUY' if trade['type'].lower() == 'buy' else 'SELL'
+        # Amount in USD (cost), round to -1 decimals, with dollar sign
+        try:
+            amount_usd = f"${round(float(trade.get('cost', 0)), -1):,.0f}"
+        except (ValueError, TypeError):
+            amount_usd = "$0"
         # Price, round to -1 decimals
         try:
             price = round(float(trade.get('price', 0)), -1)
@@ -106,12 +116,11 @@ def get_last_trades():
         rows.append({
             'Date': date,
             'Type': buy_sell,
-            'Amount (USD)': amount_usd,
-            'Currency': currency,
+            'Amount $': amount_usd,
             'Price': price
         })
     df = pd.DataFrame(rows)
-    return df
+    return df.head(10)
 
 
 def main():
@@ -141,7 +150,7 @@ def main():
         prices_df.set_index("asset", inplace=True)
         st.dataframe(prices_df)
 
-    trade_col, _, trades_col = st.columns([2, 1, 2])
+    trade_col, trades_btc, trades_eth = st.columns([1, 1, 1])
     with trade_col:
         st.header("Trade with USD")
         assets = [asset for asset in WHITELISTED_ASSETS if asset != "ZUSD"]
@@ -154,7 +163,7 @@ def main():
 
         st.text("")
 
-        col1, col2, _, _ = st.columns(4)
+        col1, col2, _ = st.columns(3)
         if col1.button(f"BUY {asset}"):
             if volume_usd > st.session_state.balances["ZUSD"]:
                 st.error("Not enough USD funds")
@@ -172,10 +181,16 @@ def main():
                     confirm_trade()
                 else:
                     st.error("Something went wrong")
-    with trades_col:
-        st.header("Last Trades")
-        last_trades_df = get_last_trades()
-        st.dataframe(last_trades_df, use_container_width=True, hide_index=True)
+
+    with trades_btc:
+        st.header("Latest BTC Orders")
+        last_btc_trades_df = get_last_trades(asset_filter="BTC")
+        st.dataframe(last_btc_trades_df, use_container_width=True, hide_index=True)
+
+    with trades_eth:
+        st.header("Latest ETH Orders")
+        last_eth_trades_df = get_last_trades(asset_filter="ETH")
+        st.dataframe(last_eth_trades_df, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":
