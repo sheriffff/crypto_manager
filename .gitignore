@@ -1,3 +1,5 @@
-keys.yaml
-
+__pycache__
 .idea
+
+keys.yaml
+pruebas.py

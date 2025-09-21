@@ -3,9 +3,9 @@ import streamlit as st
 import time
 import matplotlib.pyplot as plt
 
-from config import WHITELISTED_ASSETS, asset_to_step
-from kraken import KrakenAPI, Kraken
-from utils import load_keys, round_sig_dict
+from src.config import WHITELISTED_ASSETS, asset_to_step
+from src.kraken import KrakenAPI, Kraken
+from src.utils import load_keys, round_sig_dict
 
 
 key, secret = load_keys()
@@ -51,19 +51,23 @@ def update_prices():
     st.session_state.prices = prices
 
 
-def reset_trading_volumes():
-    st.session_state.asset_volume = 0
-    st.session_state.usd_volume = 0
+def reset_trading_volumes(asset=None):
+    if asset:
+        st.session_state[f"asset_volume_{asset}"] = 0
+        st.session_state[f"usd_volume_{asset}"] = 0
+    else:
+        # Reset all assets
+        for asset in ["XXBT", "XETH"]:
+            st.session_state[f"asset_volume_{asset}"] = 0
+            st.session_state[f"usd_volume_{asset}"] = 0
 
 
-def update_asset_volume(asset_price):
-    print("a")
-    st.session_state.asset_volume = st.session_state.usd_volume / asset_price
+def update_asset_volume(asset_price, asset):
+    st.session_state[f"asset_volume_{asset}"] = st.session_state[f"usd_volume_{asset}"] / asset_price
 
 
-def update_usd_volume(asset_price):
-    print("u")
-    st.session_state.usd_volume = st.session_state.asset_volume * asset_price
+def update_usd_volume(asset_price, asset):
+    st.session_state[f"usd_volume_{asset}"] = st.session_state[f"asset_volume_{asset}"] * asset_price
 
 
 def confirm_trade():
@@ -110,9 +114,12 @@ def get_last_trades(asset_filter=None):
             amount_usd = f"${round(float(trade.get('cost', 0)), -1):,.0f}"
         except (ValueError, TypeError):
             amount_usd = "$0"
-        # Price, round to 2 decimals for display
+        # Price, round based on asset type: BTC to -2, ETH to -1
         try:
-            price = round(float(trade.get('price', 0)), 2)
+            if asset_filter == 'BTC':
+                price = round(float(trade.get('price', 0)), -2)  # Round to nearest 100
+            else:  # ETH
+                price = round(float(trade.get('price', 0)), -1)  # Round to nearest 10
         except (ValueError, TypeError):
             price = 0.0
         rows.append({
@@ -129,7 +136,7 @@ def styled_trade_table(df):
     def highlight_type(val):
         return 'background-color: #d4f8e8' if val == 'BUY' else 'background-color: #ffd6d6'
     # Only paint Type column, do not touch Price
-    return df.style.apply(lambda col: [highlight_type(v) for v in col], subset=['Type'])
+    return df.style.apply(lambda col: [highlight_type(v) for v in col], subset=['Type']).format({'Price': '{:.0f}'})
 
 
 def trade_scatter_plot(df, asset_name):
@@ -159,11 +166,7 @@ def main():
 
     st.button("UPDATE", on_click=update_info)
 
-    st.markdown("---")
-
-    col_balances, _, col_prices, _, col_trade = st.columns([1.5, 0.5, 1, 0.5, 1.5])
-
-    with col_balances:
+    with st.columns([1, 2])[0]:
         balances_info = [{"asset": asset, "volume": volume, "volume_USD": st.session_state.balances_usd[asset]} for asset, volume in st.session_state.balances.items()]
         balances_df = pd.DataFrame(balances_info)
 
@@ -175,29 +178,42 @@ def main():
         st.header(f"My Balance: {round(balance_total)}$")
         st.dataframe(balances_df)
 
-    with col_prices:
-        st.header("Price Now")
-        prices_df = pd.DataFrame(st.session_state.prices.items(), columns=["asset", "price_USD"])
-        prices_df["price_USD"] = prices_df["price_USD"].astype(float)
-        prices_df.sort_values("price_USD", ascending=False, inplace=True)
-        prices_df["price_USD"] = prices_df["price_USD"]
-        prices_df.set_index("asset", inplace=True)
-        st.dataframe(prices_df)
+    st.markdown("---")
 
-    with col_trade:
-        st.header("Trade with USD")
-        assets = [asset for asset in WHITELISTED_ASSETS if asset != "ZUSD"]
-        asset = st.radio("Asset", assets, on_change=reset_trading_volumes)
-        asset_price = st.session_state.prices.get(asset)
 
-        col1, col2 = st.columns(2)
-        volume_usd = col1.number_input("USD", step=asset_to_step["ZUSD"], key="usd_volume", on_change=update_asset_volume, kwargs={"asset_price": asset_price})
-        volume_asset = col2.number_input(asset, step=asset_to_step[asset], key="asset_volume", on_change=update_usd_volume, kwargs={"asset_price": asset_price}, format="%.5f")
+    col_btc, col_eth = st.columns(2, gap="large", border=True)
 
-        st.text("")
+    with col_btc:
+        ui_asset("XXBT")
 
-        col1, col2, _ = st.columns(3)
-        if col1.button(f"BUY {asset}"):
+        last_btc_trades_df = get_last_trades(asset_filter="BTC")
+        st.dataframe(styled_trade_table(last_btc_trades_df), use_container_width=True, hide_index=True)
+        if not last_btc_trades_df.empty:
+            fig = trade_scatter_plot(last_btc_trades_df, "BTC")
+            st.pyplot(fig, use_container_width=True)
+    with col_eth:
+        ui_asset("XETH")
+
+        last_eth_trades_df = get_last_trades(asset_filter="ETH")
+        st.dataframe(styled_trade_table(last_eth_trades_df), use_container_width=True, hide_index=True)
+        if not last_eth_trades_df.empty:
+            fig = trade_scatter_plot(last_eth_trades_df, "ETH")
+            st.pyplot(fig, use_container_width=True)
+
+
+def ui_asset(asset):
+    asset_price = st.session_state.prices.get(asset)
+    st.header(asset)
+    st.subheader(f"Price: {asset_price}$")
+
+    col1, col2, _, _ = st.columns(4)
+    with col1:
+        volume_usd = st.number_input("USD", step=asset_to_step["ZUSD"], key=f"usd_volume_{asset}", on_change=update_asset_volume, kwargs={"asset_price": asset_price, "asset": asset})
+    with col2:
+        volume_asset = st.number_input(asset, step=asset_to_step[asset], key=f"asset_volume_{asset}", on_change=update_usd_volume, kwargs={"asset_price": asset_price, "asset": asset}, format="%.5f")
+
+    with col1:
+        if st.button(f"BUY {asset}"):
             if volume_usd > st.session_state.balances["ZUSD"]:
                 st.error("Not enough USD funds")
             else:
@@ -205,8 +221,8 @@ def main():
                     confirm_trade()
                 else:
                     st.error("Something went wrong")
-
-        if col2.button(f"SELL {asset}"):
+    with col2:
+        if st.button(f"SELL {asset}"):
             if volume_asset > st.session_state.balances[asset]:
                 st.error(f"Not enough {asset} funds")
             else:
@@ -215,25 +231,7 @@ def main():
                 else:
                     st.error("Something went wrong")
 
-    st.markdown("---")
-
-    trades_btc, _, trades_eth = st.columns([4, 1, 4])
-
-    with trades_btc:
-        st.header("Latest BTC Orders")
-        last_btc_trades_df = get_last_trades(asset_filter="BTC")
-        st.dataframe(styled_trade_table(last_btc_trades_df), use_container_width=True, hide_index=True)
-        if not last_btc_trades_df.empty:
-            fig = trade_scatter_plot(last_btc_trades_df, "BTC")
-            st.pyplot(fig, use_container_width=True)
-
-    with trades_eth:
-        st.header("Latest ETH Orders")
-        last_eth_trades_df = get_last_trades(asset_filter="ETH")
-        st.dataframe(styled_trade_table(last_eth_trades_df), use_container_width=True, hide_index=True)
-        if not last_eth_trades_df.empty:
-            fig = trade_scatter_plot(last_eth_trades_df, "ETH")
-            st.pyplot(fig, use_container_width=True)
+    st.subheader(f"Latest {asset} Orders")
 
 
 if __name__ == "__main__":

@@ -3,8 +3,8 @@ import pandas as pd
 import requests
 import time
 
-from config import WHITELISTED_ASSETS, assets_2_pair
-from utils import get_kraken_signature, load_keys
+from src.config import WHITELISTED_ASSETS, assets_2_pair
+from src.utils import get_kraken_signature, load_keys
 
 
 class KrakenAPI:
