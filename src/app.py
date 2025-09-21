@@ -201,23 +201,27 @@ def main():
     with col_btc:
         ui_trade_asset("XXBT")
 
-        # TODO: to function?
-        st.subheader(f"Latest BTC Orders")
-        last_btc_trades_df = get_last_trades(asset_filter="BTC")
-        # st.dataframe(styled_trade_table(last_btc_trades_df), use_container_width=True, hide_index=True)
-        if not last_btc_trades_df.empty:
-            fig = trade_scatter_plot(last_btc_trades_df, "BTC")
-            st.pyplot(fig, use_container_width=True)
+        ui_last_trades("BTC")
             
     with col_eth:
         ui_trade_asset("XETH")
 
-        st.subheader(f"Latest ETH Orders")
-        last_eth_trades_df = get_last_trades(asset_filter="ETH")
-        # st.dataframe(styled_trade_table(last_eth_trades_df), use_container_width=True, hide_index=True)
-        if not last_eth_trades_df.empty:
-            fig = trade_scatter_plot(last_eth_trades_df, "ETH")
-            st.pyplot(fig, use_container_width=True)
+        ui_last_trades("ETH")
+
+
+def ui_last_trades(asset):
+    """
+    Display the latest trades for a given asset.
+    
+    Args:
+        asset (str): Asset name in user-friendly format ("BTC" or "ETH")
+    """
+    st.subheader(f"Latest {asset} Orders")
+    last_trades_df = get_last_trades(asset_filter=asset)
+    # st.dataframe(styled_trade_table(last_trades_df), use_container_width=True, hide_index=True)
+    if not last_trades_df.empty:
+        fig = trade_scatter_plot(last_trades_df, asset)
+        st.pyplot(fig, use_container_width=True)
 
 
 def ui_trade_asset(asset):
