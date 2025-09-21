@@ -200,12 +200,10 @@ def main():
 
     with col_btc:
         ui_trade_asset("XXBT")
-
         ui_last_trades("BTC")
             
     with col_eth:
         ui_trade_asset("XETH")
-
         ui_last_trades("ETH")
 
 
