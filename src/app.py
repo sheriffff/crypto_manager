@@ -208,15 +208,11 @@ def main():
 
 
 def ui_last_trades(asset):
-    """
-    Display the latest trades for a given asset.
-    
-    Args:
-        asset (str): Asset name in user-friendly format ("BTC" or "ETH")
-    """
     st.subheader(f"Latest {asset} Orders")
     last_trades_df = get_last_trades(asset_filter=asset)
-    # st.dataframe(styled_trade_table(last_trades_df), use_container_width=True, hide_index=True)
+    show_last_n = 3
+    st.dataframe(styled_trade_table(last_trades_df.head(show_last_n)), use_container_width=True, hide_index=True)
+    
     if not last_trades_df.empty:
         fig = trade_scatter_plot(last_trades_df, asset)
         st.pyplot(fig, use_container_width=True)
