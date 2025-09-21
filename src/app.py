@@ -199,24 +199,28 @@ def main():
     col_btc, col_eth = st.columns(2, gap="large", border=True)
 
     with col_btc:
-        ui_asset("XXBT")
+        ui_trade_asset("XXBT")
 
+        # TODO: to function?
+        st.subheader(f"Latest BTC Orders")
         last_btc_trades_df = get_last_trades(asset_filter="BTC")
-        st.dataframe(styled_trade_table(last_btc_trades_df), use_container_width=True, hide_index=True)
+        # st.dataframe(styled_trade_table(last_btc_trades_df), use_container_width=True, hide_index=True)
         if not last_btc_trades_df.empty:
             fig = trade_scatter_plot(last_btc_trades_df, "BTC")
             st.pyplot(fig, use_container_width=True)
+            
     with col_eth:
-        ui_asset("XETH")
+        ui_trade_asset("XETH")
 
+        st.subheader(f"Latest ETH Orders")
         last_eth_trades_df = get_last_trades(asset_filter="ETH")
-        st.dataframe(styled_trade_table(last_eth_trades_df), use_container_width=True, hide_index=True)
+        # st.dataframe(styled_trade_table(last_eth_trades_df), use_container_width=True, hide_index=True)
         if not last_eth_trades_df.empty:
             fig = trade_scatter_plot(last_eth_trades_df, "ETH")
             st.pyplot(fig, use_container_width=True)
 
 
-def ui_asset(asset):
+def ui_trade_asset(asset):
     asset_price = st.session_state.prices.get(asset)
     st.header(asset)
     st.subheader(f"Price: {asset_price}$")
@@ -245,8 +249,6 @@ def ui_asset(asset):
                     confirm_trade()
                 else:
                     st.error("Something went wrong")
-
-    st.subheader(f"Latest {asset} Orders")
 
 
 if __name__ == "__main__":
