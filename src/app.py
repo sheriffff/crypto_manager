@@ -152,28 +152,34 @@ def trade_scatter_plot(df, asset_name):
     ax.plot(df['Timestamp'], df['Price'].astype(float), color='gray', linestyle='-', linewidth=1, zorder=1)
     for idx, row in df.iterrows():
         ax.scatter(row['Timestamp'], float(row['Price']), s=row['AmountNum']/df['AmountNum'].max()*100+20, color=row['Color'], zorder=2)
-        # Position text farther from circle to avoid overlap
         price_range = df['Price'].max() - df['Price'].min()
-        offset = price_range * 0.03  # 3% of price range as offset
+        offset = price_range * 0.03
         ax.text(row['Timestamp'], float(row['Price']) + offset, format_k(row['AmountNum']), fontsize=8, color='black', ha='left', va='bottom')
-    
-    # Add today's price point
     today = pd.Timestamp('now').normalize()
     asset_key = 'XXBT' if asset_name == 'BTC' else 'XETH'
-    current_price = st.session_state.prices.get(asset_key, 0)
-    if current_price > 0:
-        ax.scatter(today, current_price, s=100, color='gray', zorder=3, alpha=0.7)
-        # Position text farther from circle and in black
-        price_range = df['Price'].max() - df['Price'].min()
-        offset = price_range * 0.05  # 5% of price range as offset
-        ax.text(today, current_price + offset, 'Today', fontsize=8, color='black', ha='center', va='bottom')
-    
+    add_current_price_datapoint(asset_key, ax, df, today)
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
     ax.set_title(f'{asset_name} Trades (Last Year)')
     plt.xticks(rotation=45)
     return fig
 
+
+def add_current_price_datapoint(asset_key: str, ax: 'Axes', df, today):
+    current_price = st.session_state.prices.get(asset_key, 0)
+    ax.scatter(today, current_price, s=100, color='gray', zorder=3, alpha=0.7)
+
+    last_trade_price = df['Price'].iloc[0]
+    pct = (current_price - last_trade_price) / last_trade_price * 100
+    pct_str = f"{pct:+.1f}%"
+    ax.annotate(pct_str, (today, current_price), xytext=(0, 4), textcoords='offset points', fontsize=8, color='black',
+                ha='center', va='bottom')
+
+    penultimo_trace_price = df['Price'].iloc[1]
+    pct2 = (current_price - penultimo_trace_price) / penultimo_trace_price * 100
+    pct2_str = f"{pct2:+.1f}%"
+    ax.annotate(pct2_str, (today, current_price), xytext=(0, 20), textcoords='offset points', fontsize=7, color='black',
+                ha='center', va='top')
 
 def main():
     set_page_config()
