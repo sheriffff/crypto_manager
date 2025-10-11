@@ -83,12 +83,12 @@ def confirm_trade():
     st.rerun()
 
 
-def get_last_trades(asset_filter=None):
+def get_latest_trades(asset_filter=None):
     trades_data = kraken.get_trades_history()
     trades = trades_data.get('result', {}).get('trades', {})
 
     now = pd.Timestamp('now')
-    cutoff = now - pd.DateOffset(months=12)  # Last year instead of 24 months
+    cutoff = now - pd.DateOffset(months=6)
 
     sorted_trades = sorted(trades.values(), key=lambda x: x['time'], reverse=True)
     rows = []
@@ -129,7 +129,7 @@ def get_last_trades(asset_filter=None):
             'Amount $': amount_usd,
         })
     df = pd.DataFrame(rows)
-    return df  # Return all trades from last year, not limited to 10
+    return df
 
 
 def styled_trade_table(df):
@@ -162,6 +162,7 @@ def trade_scatter_plot(df, asset_name):
     ax.set_ylabel('Price')
     ax.set_title(f'{asset_name} Trades (Last Year)')
     plt.xticks(rotation=45)
+    ax.set_ylim(bottom=0, top=df['Price'].max() * 1.1)
     return fig
 
 
@@ -180,6 +181,7 @@ def add_current_price_datapoint(asset_key: str, ax: 'Axes', df, today):
     pct2_str = f"{pct2:+.1f}%"
     ax.annotate(pct2_str, (today, current_price), xytext=(0, 20), textcoords='offset points', fontsize=7, color='black',
                 ha='center', va='top')
+
 
 def main():
     set_page_config()
@@ -215,12 +217,12 @@ def main():
 
 def ui_last_trades(asset):
     st.subheader(f"Latest {asset} Orders")
-    last_trades_df = get_last_trades(asset_filter=asset)
+    latest_trades_df = get_latest_trades(asset_filter=asset)
     show_last_n = 3
-    st.dataframe(styled_trade_table(last_trades_df.head(show_last_n)), use_container_width=True, hide_index=True)
+    st.dataframe(styled_trade_table(latest_trades_df.head(show_last_n)), use_container_width=True, hide_index=True)
     
-    if not last_trades_df.empty:
-        fig = trade_scatter_plot(last_trades_df, asset)
+    if not latest_trades_df.empty:
+        fig = trade_scatter_plot(latest_trades_df, asset)
         st.pyplot(fig, use_container_width=True)
 
 
