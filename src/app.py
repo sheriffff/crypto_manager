@@ -157,7 +157,9 @@ def trade_scatter_plot(df, asset_name):
         ax.text(row['Timestamp'], float(row['Price']) + offset, format_k(row['AmountNum']), fontsize=8, color='black', ha='left', va='bottom')
     today = pd.Timestamp('now').normalize()
     asset_key = 'XXBT' if asset_name == 'BTC' else 'XETH'
-    add_current_price_datapoint(asset_key, ax, df, today)
+
+    annotate_price_changes(asset_key, ax, df, today)
+
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
     ax.set_title(f'{asset_name} Trades (Last Year)')
@@ -166,21 +168,39 @@ def trade_scatter_plot(df, asset_name):
     return fig
 
 
-def add_current_price_datapoint(asset_key: str, ax: 'Axes', df, today):
+def annotate_price_changes(asset_key: str, ax, df, today):
     current_price = st.session_state.prices.get(asset_key, 0)
     ax.scatter(today, current_price, s=100, color='gray', zorder=3, alpha=0.7)
 
+    last_trade_type = df['Type'].iloc[0]
     last_trade_price = df['Price'].iloc[0]
     pct = (current_price - last_trade_price) / last_trade_price * 100
     pct_str = f"{pct:+.1f}%"
-    ax.annotate(pct_str, (today, current_price), xytext=(0, 4), textcoords='offset points', fontsize=8, color='black',
-                ha='center', va='bottom')
-
-    penultimo_trace_price = df['Price'].iloc[1]
-    pct2 = (current_price - penultimo_trace_price) / penultimo_trace_price * 100
+    penultimate_trade_type = df['Type'].iloc[1]
+    penultimate_trade_price = df['Price'].iloc[1]
+    pct2 = (current_price - penultimate_trade_price) / penultimate_trade_price * 100
     pct2_str = f"{pct2:+.1f}%"
-    ax.annotate(pct2_str, (today, current_price), xytext=(0, 20), textcoords='offset points', fontsize=7, color='black',
-                ha='center', va='top')
+
+    def pct_color(pct, trade_type):
+        if (pct > 0 and trade_type == 'BUY') or (pct < 0 and trade_type == 'SELL'):
+            return 'green'
+        else:
+            return 'red'
+
+    color1 = pct_color(pct, last_trade_type)
+    color2 = pct_color(pct2, penultimate_trade_type)
+
+    sentence_last = f"{pct_str} since last {last_trade_type} at {last_trade_price:4g}$"
+    sentence_penultimate = f"{pct2_str} since last {penultimate_trade_type} at {penultimate_trade_price:4g}$"
+
+    mid_x = df['Timestamp'].min() + (df['Timestamp'].max() - df['Timestamp'].min()) / 2
+    mid_y = df['Price'].max() / 2
+
+    ax.text(mid_x, mid_y + 0.12 * (df['Price'].max()), f"Current price: {current_price}$", fontsize=15, color='black',
+            ha='center', va='bottom', fontweight='bold')
+    ax.text(mid_x, mid_y, sentence_last, fontsize=12, color=color1, ha='center', va='center', fontweight='bold')
+    ax.text(mid_x, mid_y - 0.08 * (df['Price'].max()), sentence_penultimate, fontsize=10, color=color2, ha='center', va='center',
+            fontweight='bold')
 
 
 def main():
