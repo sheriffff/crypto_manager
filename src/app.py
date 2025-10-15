@@ -13,6 +13,46 @@ kraken_api_handler = KrakenAPI(key=key, secret=secret)
 kraken = Kraken(kraken_api_handler)
 
 
+def main():
+    set_page_config()
+    load_info()
+
+    st.button("UPDATE", on_click=update_info)
+
+    col_balances, _, col_notes = st.columns([1, 0.5, 1.5])
+    with col_balances:
+        balances_info = [{"asset": asset, "volume": volume, "volume_USD": st.session_state.balances_usd[asset]} for asset, volume in st.session_state.balances.items()]
+        balances_df = pd.DataFrame(balances_info)
+
+        balances_df.sort_values("volume_USD", ascending=False, inplace=True)
+        balances_df.set_index("asset", inplace=True)
+
+        balance_total = balances_df["volume_USD"].sum()
+
+        st.header(f"My Balance: {round(balance_total)}$")
+        st.dataframe(balances_df)
+
+    with col_notes:
+        st.subheader("**Notas:**")
+        with open("notes.txt") as f:
+            notes = f.readlines()
+        for note in notes:
+            st.write(f"<span style='font-size:22px;'>&#8226; {note.strip()}</span>",  unsafe_allow_html=True)
+
+    st.markdown("---")
+
+
+    col_btc, col_eth = st.columns(2, gap="large", border=True)
+
+    with col_btc:
+        ui_trade_asset("XXBT")
+        ui_last_trades("BTC")
+
+    with col_eth:
+        ui_trade_asset("XETH")
+        ui_last_trades("ETH")
+
+
 def set_page_config():
     st.set_page_config(
         page_title="Cryptos Manager",
@@ -201,38 +241,6 @@ def annotate_price_changes(asset_key: str, ax, df, today):
     ax.text(mid_x, mid_y, sentence_last, fontsize=12, color=color1, ha='center', va='center', fontweight='bold')
     ax.text(mid_x, mid_y - 0.08 * (df['Price'].max()), sentence_penultimate, fontsize=10, color=color2, ha='center', va='center',
             fontweight='bold')
-
-
-def main():
-    set_page_config()
-    load_info()
-
-    st.button("UPDATE", on_click=update_info)
-
-    with st.columns([1, 2])[0]:
-        balances_info = [{"asset": asset, "volume": volume, "volume_USD": st.session_state.balances_usd[asset]} for asset, volume in st.session_state.balances.items()]
-        balances_df = pd.DataFrame(balances_info)
-
-        balances_df.sort_values("volume_USD", ascending=False, inplace=True)
-        balances_df.set_index("asset", inplace=True)
-
-        balance_total = balances_df["volume_USD"].sum()
-
-        st.header(f"My Balance: {round(balance_total)}$")
-        st.dataframe(balances_df)
-
-    st.markdown("---")
-
-
-    col_btc, col_eth = st.columns(2, gap="large", border=True)
-
-    with col_btc:
-        ui_trade_asset("XXBT")
-        ui_last_trades("BTC")
-            
-    with col_eth:
-        ui_trade_asset("XETH")
-        ui_last_trades("ETH")
 
 
 def ui_last_trades(asset):
