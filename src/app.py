@@ -19,7 +19,7 @@ def main():
 
     st.button("UPDATE", on_click=update_info)
 
-    col_balances, _, col_notes = st.columns([1, 0.5, 1.5])
+    col_balances, col_notes = st.columns([1, 2], gap="large")
     with col_balances:
         balances_info = [{"asset": asset, "volume": volume, "volume_USD": st.session_state.balances_usd[asset]} for asset, volume in st.session_state.balances.items()]
         balances_df = pd.DataFrame(balances_info)
@@ -34,10 +34,14 @@ def main():
 
     with col_notes:
         st.subheader("**Notas:**")
+        new_note = st.text_input("Añade una nota:")
+        if st.button("Añadir nota"):
+            add_note(new_note)
+            st.rerun()
         with open("notes.txt") as f:
             notes = f.readlines()
         for note in notes:
-            st.write(f"<span style='font-size:22px;'>&#8226; {note.strip()}</span>",  unsafe_allow_html=True)
+            st.write(f"<span style='font-size:16px;'>&#8226; {note.strip()}</span>",  unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -73,6 +77,12 @@ def update_info():
     update_balances()
     update_prices()
 
+
+def add_note(note):
+    date = pd.Timestamp('now').strftime('%Y-%m-%d')
+    # make sure to change '$' by '\$' to avoid markdown issues
+    with open("notes.txt", "a") as f:
+        f.write(f"{date}: {note.replace('$', '\\$')}\n")
 
 def update_balances():
     balances = kraken.get_assets_balances()
