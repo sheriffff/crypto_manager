@@ -1,5 +1,7 @@
 __pycache__
 .idea
 
+.ipynb_checkpoints
+
 keys.yaml
 pruebas.py
