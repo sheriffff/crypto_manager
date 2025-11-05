@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from src.config import WHITELISTED_ASSETS, asset_to_step
 from src.kraken import KrakenAPI, Kraken
 from src.utils import load_keys, round_sig_dict
+from src.trade_rebalance import analyze_and_trade
 
 
 key, secret = load_keys()
@@ -268,6 +269,16 @@ def ui_trade_asset(asset):
     asset_price = st.session_state.prices.get(asset)
     st.header(asset)
     st.subheader(f"Price: {asset_price}$")
+
+    # Add rebalancing recommendation for XETH
+    if asset == "XETH":
+        eth_units = st.session_state.balances.get("XETH", 0)
+        dollars_liquid = st.session_state.balances.get("ZUSD", 0)
+
+        action, amount = analyze_and_trade(eth_units, asset_price, dollars_liquid)
+
+        if amount > 1000:
+            st.success(f"**{action}: {amount:.0f} $**")
 
     col1, col2, _, _ = st.columns(4)
     with col1:
